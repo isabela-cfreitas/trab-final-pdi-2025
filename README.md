@@ -16,7 +16,7 @@
 - Devido à quantidade e tamanho dos arquivos, a disponibilização do material pelo meio que usamos nas aulas práticas (Google Drive) não se mostra a maneira mais adequada, pois demandaria renomeação em massa ou dos arquivos, ou de suas referências no código do enunciado.
 - Assim, a exemplo do trabalho anterior, optou-se pelo uso do Github:
 
-    1. Clone o repositório para uma pasta que desejar ([Mini Guia de Uso do Git e GitHub](guia_github.md))
+    1. Clone o repositório para uma pasta que desejar ([Mini Guia de Uso do Git e GitHub](GuiaGithub.md))
     2. Desenvolva o trabalho (mais sobre isso adiante)
     3. Entregue o Notebook via Moodle com as saídas limpas (instruções detalhadas no final do Notebook)
 
