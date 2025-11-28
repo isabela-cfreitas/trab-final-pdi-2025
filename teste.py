@@ -500,3 +500,142 @@ def aprimora(img, f, alarg=True):
     print(hsl[0][0][2])
 
 aprimora(img, 1)
+
+def histograma_CDF(hist):
+    acc = 0
+    cdf = np.zeros_like(hist)
+    for i in range(len(hist)):
+        acc += hist[i]
+        cdf[i] = acc
+    return cdf
+
+
+def otsu(img, inv=False):
+    arr = extrai_array(img.convert("L"))
+    h, w = arr.shape[0:2]
+    p = pega_histograma(arr) / (h * w)
+    cdf = histograma_CDF(p)
+    idx_arr = np.arange(256)
+    media = np.sum(p * idx_arr)
+    th = 0
+    variancia_max = 0
+    for k in range(1, 255):
+        media1 = np.sum((p * idx_arr)[0:k+1]) / cdf[k]
+        media2 = np.sum((p * idx_arr)[k+1:256])/(1 - cdf[k])
+
+        variancia = cdf[k] * (media1 - media)**2 + (1 - cdf[k]) * (media2 - media)**2
+
+        if variancia > variancia_max:
+            variancia_max = variancia
+            th = k
+    for x in range(h):
+        for y in range(w):
+            arr[x][y] = 1 if ((arr[x][y] > th) != inv) else 0
+                                
+    return toPil(arr)
+
+def cinza_lum(img):
+    arr = extrai_array(img)
+    arr = arr[...,0] * 0.299 + arr[...,1] * 0.587 + arr[...,2] * 0.114
+    return toPil(arr)
+
+def aplica_filtro(img, filtro):
+    arr = extrai_array(img)
+    h, w = arr.shape[0:2]
+    n = filtro.shape[0]
+    d = n // 2
+    arr2 = np.zeros_like(arr)
+    for i in range(d, h-d):
+        for j in range(d, w-d):
+            arr2[i][j] = np.sum(arr[i-d:i+d+1, j-d:j+d+1] * filtro)
+    return toPil(arr2)
+
+def gera_filtro_gaussiano(tam):
+    filtro = np.zeros((tam, tam))
+    d = tam//2
+    for i in range(tam):
+        for j in range(tam):
+            x, y = i-d, j-d
+            filtro[i][j] = (math.e ** (-(x**2 + y**2) / 2)) / (2 * math.pi)
+    return filtro
+
+def suaviza(img, tam):
+    filtro = gera_filtro_gaussiano(tam)
+    return aplica_filtro(img, filtro)
+
+def sobel(img):
+    arr = extrai_array(img)
+    h, w = arr.shape[0:2]
+    Kx = np.array([[1, 0, -1], [2, 0, -2], [1, 0, -1]])
+    Ky = np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]])
+    Gx = np.zeros_like(arr)
+    Gy = np.zeros_like(arr)
+    for i in range(1, h-1):
+        for j in range(1, w-1):
+            sq = arr[i-1:i+2, j-1:j+2]
+            Gx[i, j] = np.sum(sq * Kx)
+            Gy[i, j] = np.sum(sq * Ky)
+    return np.hypot(Gx, Gy), np.arctan2(Gy, Gx)
+
+def sup_nao_max(G, angulos):
+    h, w = G.shape
+    res = np.zeros_like(G)
+    angulos = ((angulos*180)/math.pi) % 180
+    for i in range(1, h-1):
+        for j in range(1, w-1):
+            q = 255
+            r = 255
+            
+            if (0 <= angulos[i, j] < 22.5) or (157.5 <= angulos[i, j] < 180):
+                q = G[i, j+1]
+                r = G[i, j-1]
+
+            elif (22.5 <= angulos[i, j] < 67.5):
+                q = G[i+1, j-1]
+                r = G[i-1, j+1]
+            
+            elif (67.5 <= angulos[i, j] < 112.5):
+                q = G[i+1, j]
+                r = G[i-1, j]
+            
+            elif (112.5 <= angulos[i, j] < 157.5):
+                q = G[i-1, j-1]
+                r = G[i+1, j+1]
+            
+            if (G[i, j] >= q) and (G[i, j] >= r):
+                res[i, j] = G[i, j]
+            else:
+                res[i, j] = 0
+    return res
+
+def duplo_limiar(Z, alfa, beta):
+    h, w = Z.shape[0:2]
+    b = beta * Z.max()
+    a = alfa * b
+    f = np.round(b)+1
+    F = 255
+    R = np.zeros_like(Z)
+
+    for i in range(h):
+        for j in range(w):
+            if Z[i][j]>=b:
+                R[i][j] = F
+            elif a <= Z[i][j]:
+                R[i][j] = f
+    
+    return R, f, F
+
+def histerese(R, f, F):
+    h,w = R.shape[0:2]
+    for i in range(1, h-1):
+        for j in range(1, w-1):
+            if R[i][j] == f:
+                sem_forte = True
+                for x in [i-1, i, i+1]:
+                    for y in [j-1, j, j+1]:
+                        if R[x][y] >= F:
+                            R[i][j] = F
+                            sem_forte = False
+                if sem_forte:
+                    R[i][j] = 0
+    return R
