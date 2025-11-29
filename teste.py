@@ -639,3 +639,83 @@ def histerese(R, f, F):
                 if sem_forte:
                     R[i][j] = 0
     return R
+
+def pega_imagem_x(imgs, x):
+    return imgs[x, :, :]
+
+def pega_imagem_y(imgs, y):
+    return imgs[:, y, :]
+
+def pega_imagem_z(imgs, z):
+    return imgs[:, :, z]
+
+def pega_imagens(imgs, x=[], y=[], z=[]):
+    ret = []
+    for i in x:
+        ret.append(toPil(pega_imagem_x(imgs, i)))
+    for j in y:
+        ret.append(toPil(pega_imagem_y(imgs, j)))
+    for k in z:
+        ret.append(toPil(pega_imagem_z(imgs, k)))
+    return ret
+
+imgs = np.load("dados_medicos/hipercubo_c02.npy")
+
+x = [0, 137, 274, 411, 548]
+y = [0, 49, 98, 147, 196, 245]
+z = [0, 64, 128, 192, 256, 320]
+
+mostrar_imagens(pega_imagens(imgs, x=x), [f"x={i}" for i in x], ncolunas=len(x))
+mostrar_imagens(pega_imagens(imgs, y=y), [f"y={i}" for i in y], ncolunas=len(y))
+mostrar_imagens(pega_imagens(imgs, z=z), [f"z={i}" for i in z], ncolunas=len(z))
+
+def pega_histograma_3d(img):
+    h = np.zeros(256)
+    for i in range(img.shape[0]):
+        for j in range(img.shape[1]):
+            for k in range(img.shape[2]):
+                h[int(img[i][j][k])] += 1
+    return h
+
+def segmenta(arr_orig, perc=None, th=None):
+    # Operador ^: ou exclusivo
+    # Garante que somente um dos parâmetros opcionais foi informado
+    # Se nenhum deles for informado, lança exceção
+    # Se os dois forem informados, também lança exceção
+    if not ((perc is None) ^ (th is None)):
+        raise ValueError('Apenas um dos parâmetros th ou perc deve ser informados. Não se pode deixar os dois vazios e nem informar ambos.')
+    
+    #################### COMPLETE COM SEU CÓDIGO #############
+    h, w, d = arr_orig.shape[0:3]
+    hist = pega_histograma_3d(arr_orig) / (h * w * d)
+    cdf = histograma_CDF(hist)
+    if perc is None:
+        perc = 1 - cdf[th]
+    else:
+        a, b, c, p = -1, 256, 127, 10000
+        while (a < c and c < b):
+            aux = 1-cdf[c]
+            if (abs(aux - perc) < p):
+                th = c
+                p = abs(aux - perc)
+            if aux < perc:
+                b = c
+            else:
+                a = c
+            c = (a + b) // 2
+    
+    arr = np.zeros_like(arr_orig)
+    # for i in range(h):
+    #     for j in range(w):
+    #         for k in range(d):
+    #             c = arr_orig[i][j][k]
+    #             arr[i][j][k] = c if c > th else 0
+    arr = np.where(arr_orig > th, arr_orig, 0)
+    vals = arr[arr > th]
+    if vals.size > 1:
+        lo = vals.min()
+        hi = vals.max()
+        arr = np.where(arr > th, (arr - lo) * 255/(hi - lo), 0)
+    else:
+        arr = np.zeros_like(arr)
+    return arr, perc, th
