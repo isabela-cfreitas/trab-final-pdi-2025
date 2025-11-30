@@ -824,15 +824,295 @@ display(toPil(nir))
 
 def segmentadora(dados, indice):
     res = np.zeros_like(dados)
-    th = lim_otsu(indice)
 
-    binaria = (indice > th)
+    i = indice.copy()
+    i = (i - i.min()) / (i.max() - i.min()) * 255
+
+    th = lim_otsu(i)
+
+    binaria = (i > th)
     #segmentada = img_rgb * binaria[:, :, None]
     binaria3 = np.repeat(binaria[:, :, None], 3, axis=2)
     segmentada = dados * binaria3
 
+    return dados, i, binaria, segmentada
+
+def ndvi (dados):
+    nir = dados[:,:,3]
+    r = dados[:,:,0]
+    return (nir - r)/(nir + r)
+
+def ndbi (dados):
+    swir1 = dados[:,:,4]
+    nir = dados[:,:,3]
+    return (swir1 - nir)/ (swir + nir)
+
+def segmentadora(dados, ind = 'ndbi'):
+
+    rgb = dados[:,:,:3]
+    min_rgb = rgb.min(axis=(0,1))
+    max_rgb = rgb.max(axis=(0,1))
+    rgb_norm = (rgb - min_rgb) / (max_rgb - min_rgb) * 255
+    rgb_norm = rgb_norm.astype(np.uint8)
+    mostrar_imagens([toPil(rgb_norm)])
+
+    if (ind == 'ndvi'):
+        indice = ndvi(dados)
+    elif (ind == 'ndbi'):
+        indice = ndbi(dados)
+
+    indice = np.nan_to_num(indice)
+    indice = (indice - indice.min()) / (indice.max() - indice.min()) * 255
+    indice = indice.astype(np.uint8)
+    mostrar_imagens([toPil(indice)])
+
+    th = lim_otsu(indice)
+    print(f"th: {th}")
+
+    binaria = (indice > th)
+    #segmentada = img_rgb * binaria[:, :, None]
+    binaria3 = np.repeat(binaria[:, :, None], 3, axis=2)
+    segmentada = rgb_norm * binaria3
+
     return dados, indice, binaria, segmentada
+
+def segmentadora(dados, ind="ndvi"):
+    
+    # Normaliza RGB
+    rgb = dados[:, :, :3].astype(np.float32)
+    rgb_norm = (rgb - rgb.min()) / (rgb.max() - rgb.min()) * 255
+    rgb_norm = rgb_norm.astype(np.uint8)
+    mostrar_imagens([toPil(rgb_norm)])
+
+    # Índice espectral
+    indice = ndvi(dados) if ind == "ndvi" else ndbi(dados)
+
+    indice = np.nan_to_num(indice)
+
+    # Normaliza índice para 0–255
+    indice = (indice - indice.min()) / (indice.max() - indice.min()) * 255
+    indice = indice.astype(np.uint8)
+    mostrar_imagens([toPil(indice)])
+
+    # Otsu
+    th = lim_otsu(indice)
+    print("limiar Otsu =", th)
+
+    # Binarização
+    binaria = indice > th
+    segmentada = rgb_norm * binaria[:, :, None]
+
+    return rgb_norm, indice, binaria, segmentada
+
+# Implemente aqui sua solução para as visualizações
+# dados = np.load('multi_espectral/br_araguari_mg.npy')
+# minimos = dados.min(axis=(0,1))
+# maximos = dados.max(axis=(0,1))
+
+# dados = (dados - minimos) / (maximos - minimos + 1e-6)
+# dados = (dados * 255).round().astype(np.uint8)
+
+# print("Formato final:", dados.shape)
+# print("Tipo:", dados.dtype)
+
+cidades = ["multi_espectral/br_araguari_mg.npy", "multi_espectral/br_araponga_mg.npy", "multi_espectral/br_lem_ba.npy", "multi_espectral/br_rio_verde_go.npy", "multi_espectral/br_sorriso_mt.npy"]
+
+for cidade in cidades:
+    dados = np.load(cidade)
+    minimos = dados.min(axis=(0,1))
+    maximos = dados.max(axis=(0,1))
+
+    dados = (dados - minimos) / (maximos - minimos + 1e-6)
+    dados = (dados * 255).round().astype(np.uint8)
+
+    print("Formato final:", dados.shape)
+    print("Tipo:", dados.dtype)
+        
+    rgb_norm, indice, binaria, segmentada = segmentadora(dados, "ndvi")
+    mostrar_imagens([toPil(rgb_norm), toPil(indice), toPil(binaria), toPil(segmentada)],["rgb", "monocromática ndvi", "ndvi com otsu", "segmentação com vegetação"])
+    rgb_norm, indice, binaria, segmentada = segmentadora(dados, "ndbi")
+    mostrar_imagens([toPil(rgb_norm), toPil(indice), toPil(binaria), toPil(segmentada)],["rgb", "monocromática ndbi", "ndbi com otsu", "segmentação com vegetação"])
+
 
 
     
 
+def perc_to_th(img, perc):
+    arr = extrai_array(img)
+    cdf = histograma_CDF(pega_histograma(arr))
+    a, b, c, p = -1, 256, 127, 10000
+    while (a < c and c < b):
+        aux = 1-cdf[c]
+        if (abs(aux - perc) < p):
+            th = c
+            p = abs(aux - perc)
+        if aux < perc:
+            b = c
+        else:
+            a = c
+        c = (a + b) // 2
+    return th
+
+
+cidades = ["multi_espectral/br_araguari_mg.npy", "multi_espectral/br_araponga_mg.npy", "multi_espectral/br_lem_ba.npy", "multi_espectral/br_rio_verde_go.npy", "multi_espectral/br_sorriso_mt.npy"]
+
+for cidade in cidades:
+    dados = np.load(cidade)
+    minimos = dados.min(axis=(0,1))
+    maximos = dados.max(axis=(0,1))
+
+    dados = (dados - minimos) / (maximos - minimos + 1e-6)
+    dados = (dados * 255).round().astype(np.uint8)
+
+    print("Formato final:", dados.shape)
+    print("Tipo:", dados.dtype)
+        
+    rgb_norm, indice, binaria, segmentada = segmentadora2(dados, "ndvi")
+    mostrar_imagens([toPil(rgb_norm), toPil(indice), toPil(binaria), toPil(segmentada)],["rgb", "monocromática ndvi", "ndvi com otsu", "segmentação com vegetação"])
+    rgb_norm, indice, binaria, segmentada = segmentadora2(dados, "ndbi")
+    mostrar_imagens([toPil(rgb_norm), toPil(indice), toPil(binaria), toPil(segmentada)],["rgb", "monocromática ndbi", "ndbi com otsu", "segmentação com vegetação"])
+
+def segmentadora2(dados, ind="ndvi", perc=0.5):
+    rgb = dados[:, :, :3]
+    #mostrar_imagens([toPil(rgb)])
+
+    if ind == "ndvi":
+        indice = ndvi(dados)
+    else:
+        indice = ndbi(dados)
+
+    ind_min = indice.min()
+    ind_max = indice.max()
+    mono = ( (indice - ind_min) / (ind_max - ind_min) * 255 ).round().astype(np.uint8)
+
+    # Sanitiza valores
+    # indice = np.nan_to_num(indice, nan=0.0, posinf=1.0, neginf=-1.0)
+
+    # # Normaliza índice para 0–255
+    # indice = (indice - indice.min()) / (indice.max() - indice.min() + 1e-6)
+    # indice = (indice * 255).astype(np.uint8)
+
+    #mostrar_imagens([toPil(mono)])
+
+    th = perc_to_th(mono, perc)
+
+    binaria = mono >= th
+    binaria3 = np.repeat(binaria[:, :, None], 3, axis=2)
+    segmentada = rgb * binaria3
+
+    return rgb, mono, binaria, segmentada
+
+
+def segmenta(arr_orig, perc=None, th=None):
+    # Operador ^: ou exclusivo
+    # Garante que somente um dos parâmetros opcionais foi informado
+    # Se nenhum deles for informado, lança exceção
+    # Se os dois forem informados, também lança exceção
+    if not ((perc is None) ^ (th is None)):
+        raise ValueError('Apenas um dos parâmetros th ou perc deve ser informados. Não se pode deixar os dois vazios e nem informar ambos.')
+    
+    #################### COMPLETE COM SEU CÓDIGO #############
+    h, w, d = arr_orig.shape[0:3]
+    hist = pega_histograma_3d(arr_orig) / (h * w * d)
+    cdf = histograma_CDF(hist)
+    if perc is None:
+        perc = 1 - cdf[th]
+    else:
+        a, b, c, p = -1, 256, 127, 10000
+        while (a < c and c < b):
+            aux = 1-cdf[c]
+            if (abs(aux - perc) < p):
+                th = c
+                p = abs(aux - perc)
+            if aux < perc:
+                b = c
+            else:
+                a = c
+            c = (a + b) // 2
+    
+    arr = np.zeros_like(arr_orig)
+    # for i in range(h):
+    #     for j in range(w):
+    #         for k in range(d):
+    #             c = arr_orig[i][j][k]
+    #             arr[i][j][k] = c if c > th else 0
+    arr = np.where(arr_orig > th, arr_orig, 0)
+    vals = arr[arr > 0]
+    if vals.size > 1:
+        lo = vals.min()
+        hi = vals.max()
+        arr[arr == 0] = lo
+        arr = (arr - lo) * 255.0 / (hi - lo)
+    else:
+        arr = np.zeros_like(arr)
+    return arr, perc, th
+
+cidades = ["multi_espectral/br_araguari_mg.npy", "multi_espectral/br_araponga_mg.npy", "multi_espectral/br_lem_ba.npy", "multi_espectral/br_rio_verde_go.npy", "multi_espectral/br_sorriso_mt.npy"]
+
+for cidade in cidades:
+    dados = np.load(cidade)
+    minimos = dados.min(axis=(0,1))
+    maximos = dados.max(axis=(0,1))
+
+    dados = (dados - minimos) / (maximos - minimos + 1e-6)
+    dados = (dados * 255).round().astype(np.uint8)
+
+    print("Formato final:", dados.shape)
+    print("Tipo:", dados.dtype)
+        
+    rgb_norm, indice, binaria, segmentada = segmentadora2(dados, "ndvi")
+    mostrar_imagens([toPil(rgb_norm), toPil(indice), toPil(binaria), toPil(segmentada)],["rgb", "monocromática ndvi", "ndvi com perc", "segmentação com vegetação"])
+    rgb_norm, indice, binaria, segmentada = segmentadora2(dados, "ndbi")
+    mostrar_imagens([toPil(rgb_norm), toPil(indice), toPil(binaria), toPil(segmentada)],["rgb", "monocromática ndbi", "ndbi com perc", "segmentação com vegetação"])
+
+
+def binariza_perc(img, perc):
+    arr = extrai_array(img)
+    h,w = arr.shape[0:2]
+    cdf = histograma_CDF(pega_histograma(arr) / (h*w))
+    a, b, c, p = -1, 256, 127, 10000
+    while (a < c and c < b):
+        aux = 1-cdf[c]
+        if (abs(aux - perc) < p):
+            th = c
+            p = abs(aux - perc)
+        if aux < perc:
+            b = c
+        else:
+            a = c
+        c = (a + b) // 2
+    # for i in range(h):
+    #     for j in range(w):
+    #         arr[i][j] = 255 if arr[i][j]>th else 0
+    arr = np.where(arr > th, 255, 0)
+    return arr
+
+def segmentadora2(dados, ind="ndvi", perc=0.5):
+    rgb = dados[:, :, :3]
+    #mostrar_imagens([toPil(rgb)])
+
+    if ind == "ndvi":
+        indice = ndvi(dados)
+    else:
+        indice = ndbi(dados)
+
+    ind_min = indice.min()
+    ind_max = indice.max()
+    mono = ( (indice - ind_min) / (ind_max - ind_min) * 255 ).round().astype(np.uint8)
+
+    # Sanitiza valores
+    # indice = np.nan_to_num(indice, nan=0.0, posinf=1.0, neginf=-1.0)
+
+    # # Normaliza índice para 0–255
+    # indice = (indice - indice.min()) / (indice.max() - indice.min() + 1e-6)
+    # indice = (indice * 255).astype(np.uint8)
+
+    #mostrar_imagens([toPil(mono)])
+
+    binaria = binariza_perc(mono, perc)
+
+    # binaria = mono >= th
+    binaria3 = np.repeat(binaria[:, :, None], 3, axis=2)
+    segmentada = rgb * binaria3
+
+    return rgb, mono, binaria, segmentada
