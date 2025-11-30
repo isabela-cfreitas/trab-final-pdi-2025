@@ -1116,3 +1116,82 @@ def segmentadora2(dados, ind="ndvi", perc=0.5):
     segmentada = rgb * binaria3
 
     return rgb, mono, binaria, segmentada
+
+    
+def rgb2hsl(arr):
+    r = arr[:, :, 0]/255
+    g = arr[:, :, 1]/255
+    b = arr[:, :, 2]/255
+
+    # cmax = max(r, g, b)
+    # cmin = min(r, g, b)
+    cmax = np.maximum(np.maximum(r, g), b)
+    cmin = np.minimum(np.minimum(r, g), b)
+
+    delta = cmax - cmin
+    
+    l = (cmax + cmin) / 2
+
+    h = np.zeros_like(l)
+
+    # if delta == 0:
+    #     h = 0
+    # elif cmax == r:
+    #     h = 60 * ((g - b) / delta) % 6
+    # elif cmax == g:
+    #     h = 60 * ((b - r) / delta) + 2
+    # else:
+    #     h = 60 * ((r - g) / delta) + 4
+    semzero = delta != 0
+    h = np.where(semzero & (cmax == r), 60 * (((g - b) / delta) % 6), h)
+    h = np.where(semzero & (cmax == g), 60 * (((b - r) / delta) + 2), h)
+    h = np.where(semzero & (cmax == b), 60 * (((r - g) / delta) + 4), h)
+
+    # if delta == 0:
+    #     s = 0
+    # else: 
+    #     s = delta / (1 - abs(2 * l - 1))
+    s = np.where(delta == 0, 0,delta / (1 - np.abs(2 * l - 1))) 
+    
+    return np.stack([h, s, l], axis=2)
+
+def hsl2rgb(arr):
+    h = arr[:, :, 0]
+    s = arr[:, :, 1]
+    l = arr[:, :, 2]
+
+    c = (1-abs(2 * l - 1))*s
+    x = c*(1-abs((h/60)%2 -1))
+    m = l - c/2
+
+    r = np.zeros_like(h)
+    g = np.zeros_like(h)
+    b = np.zeros_like(h)
+
+    if (h>=0 and h<60):
+        r = c
+        g = x
+        b = 0
+    elif (h>=60 and h<120):
+        r = x
+        g = c
+        b = 0
+    elif (h>=120 and h<180):
+        r = 0
+        g = c
+        b = x
+    elif (h>=180 and h<240):
+        r = 0
+        g = x
+        b = c
+    elif (h>=240 and h<300):
+        r = x
+        g = 0
+        b = c
+    else:
+        r = c
+        g = 0
+        b = x
+    r = np.round((r + m)*255)
+    g = np.round((g + m)*255)
+    b = np.round((b + m)*255)
