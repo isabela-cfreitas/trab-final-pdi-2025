@@ -719,3 +719,120 @@ def segmenta(arr_orig, perc=None, th=None):
     else:
         arr = np.zeros_like(arr)
     return arr, perc, th
+
+
+dados = np.load('multi_espectral/S_00.npy')
+minimos = dados.min(axis=(0,1))
+print(f'Formato do array de mínimos por canal: {minimos.shape}')
+maximos = dados.max(axis=(0,1))
+print(f'Formato do array de máximos por canal: {maximos.shape}')
+dados = (dados - minimos) / (maximos - minimos) * 255
+print(f'Formato do array de normalizado: {minimos.shape}')
+print()
+
+# Conferindo:
+for c in range(dados.shape[2]):
+  print(f'Intervalo de valores do canal {c}: {dados[:,:,c].min()} a {dados[:,:,c].max()}')
+print()
+
+# Ajuste de tipos
+dados = dados.round().astype(np.uint8)
+print(f'Tipo de dado contido no array: {dados.dtype}')
+
+def lim_otsu(img):
+    if isinstance(img, Image.Image):
+        arr = extrai_array(img)
+    elif isinstance(img, np.ndarray):
+        arr = img
+    else:
+        raise TypeError('Tipo de dado não suportado.')
+    
+    #################### COMPLETE COM SEU CÓDIGO #############
+    h, w = arr.shape[0:2]
+    p = pega_histograma(arr) / (h * w)
+    cdf = histograma_CDF(p)
+    idx_arr = np.arange(256)
+    media = np.sum(p * idx_arr)
+    th = 0
+    variancia_max = 0
+    for k in range(1, 255):
+        media1 = np.sum((p * idx_arr)[0:k+1]) / cdf[k]
+        media2 = np.sum((p * idx_arr)[k+1:256])/(1 - cdf[k])
+
+        variancia = cdf[k] * (media1 - media)**2 + (1 - cdf[k]) * (media2 - media)**2
+
+        if variancia > variancia_max:
+            variancia_max = variancia
+            th = k
+    
+    return th
+
+"""
+Neste exercício vamos usar estes índices para segmentar as imagens de satélite. No caso extrairemos áreas florestadas, de vegetação densa e áreas com alto grau de exposição do solo, o que incluirá áreas urbanas. Um algoritmo generalizado, para isso, seria:
+
+1. Carregue os dados multi espectrais e normalize seus valores
+
+2. Gere uma visualização RGB, usando os canais apropriados (Imagem A, abaixo)
+
+3. Calcule o índice desejado (NDVI ou NDBI), a partir dos canais envolvidos em cada caso
+
+4. Use a matriz calculada com os valores do índice desejado para gerar uma imagem monocromática (Imagem B, abaixo)
+
+5. Utilize o algoritmo de Otsu para binarizar a imagem monocromática (Imagem C, abaixo)
+
+6. Gere a imagem segmentada, pelo produto da imagem RGB pela binária. Ou seja:
+
+  - Onde os pixels são pretos na imagem binária, isto é, possuem o valor zero, resultarão em pixels preto na imagem segmentada.
+  
+  - Onde os pixels forem brancos na imagem binária, isto é, possuem o valor um, resultarão em pixels com os mesmos valores originais na imagem RGB.
+
+  - Em outras palavra, a imagem binária será uma máscara para seleção de pixels na imagem RGB
+
+  Execute a célula abaixo para visualizar os resultados do processo descrito, tanto para o caso NDVI, quanto para o caso NDBI. Ambos estão ilustrados com os dados de Araguari (MG).
+"""
+
+# A normalização deve ser feita POR CANAL:
+# Abaixo, como seria o código iterativo:
+
+# for c in range(dados.shape[2]):
+#   dados[:,:,c] = (dados[:,:,c] - dados[:,:,c].min()) / (dados[:,:,c].max() - dados[:,:,c].min()) * 255
+
+# Versão numpy
+minimos = dados.min(axis=(0,1))
+print(f'Formato do array de mínimos por canal: {minimos.shape}')
+maximos = dados.max(axis=(0,1))
+print(f'Formato do array de máximos por canal: {maximos.shape}')
+dados = (dados - minimos) / (maximos - minimos) * 255
+print(f'Formato do array de normalizado: {minimos.shape}')
+print()
+
+# Conferindo:
+for c in range(dados.shape[2]):
+  print(f'Intervalo de valores do canal {c}: {dados[:,:,c].min()} a {dados[:,:,c].max()}')
+print()
+
+# Ajuste de tipos
+dados = dados.round().astype(np.uint8)
+print(f'Tipo de dado contido no array: {dados.dtype}')
+
+rgb = dados[:,:,:3]
+display(toPil(rgb))
+
+nir = dados[:,:,3]
+display(toPil(nir))
+
+
+def segmentadora(dados, indice):
+    res = np.zeros_like(dados)
+    th = lim_otsu(indice)
+
+    binaria = (indice > th)
+    #segmentada = img_rgb * binaria[:, :, None]
+    binaria3 = np.repeat(binaria[:, :, None], 3, axis=2)
+    segmentada = dados * binaria3
+
+    return dados, indice, binaria, segmentada
+
+
+    
+
