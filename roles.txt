@@ -1,0 +1,5 @@
+Dupla:
+Isabela de Castro Freitas - 112692
+Pedro Henrique Coura Pereira - 112693
+
+Papeis: Os códigos para todas as atividades solicitades em "Tarefas.ipynb" foram escritos em conjunto utilizando extensão "LiveShare" do VSCode
